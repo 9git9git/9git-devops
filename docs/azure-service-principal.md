@@ -35,7 +35,8 @@
     - **설명 (Description):** 암호의 용도를 알 수 있는 설명을 입력합니다. (예: `automation-secret`)
     - **만료 (Expires):** 암호의 만료 기간을 선택합니다. (보안을 위해 권장 기간 선택, 예: 6개월)
     - **추가 (Add):** '**추가**' 버튼을 클릭합니다.
-    - **!!! 중요 !!!:** 클라이언트 암호가 생성되면 '**값(Value)**' 열에 암호 문자열이 표시됩니다. **이 값은 페이지를 벗어나면 다시 볼 수 없으므로, 즉시 복사하여 안전한 곳(예: Azure Key Vault, 보안된 비밀 관리 도구)에 저장해야 합니다.** '비밀 ID(Secret ID)'가 아니라 '**값(Value)**'을 복사해야 합니다.
+    - **⚠️ 중요 ⚠️:** 클라이언트 암호가 생성되면 '**값(Value)**' 열에 암호 문자열이 표시됩니다. **이 값은 페이지를 벗어나면 다시 볼 수 없으므로, 즉시 복사하여 안전한 곳(예: Azure Key Vault, 보안된 비밀 관리 도구)에 저장해야 합니다.** '비밀 ID(Secret ID)'가 아니라 '**값(Value)**'을 복사해야 합니다.
+    - **⚠️ 중요 보안 경고 ⚠️**: 클라이언트 암호를 코드나 구성 파일에 직접 포함시키지 마십시오. 이는 보안 위험을 초래할 수 있습니다. `Azure Key Vault`와 같은 보안 저장소를 사용하여 암호를 안전하게 관리하고, 가능하다면 관리 ID를 사용하여 암호 없는 인증을 고려하십시오.
 
 #### 방법 2: Azure CLI 사용
 
@@ -80,7 +81,7 @@
     # 필요한 정보 출력
     Write-Host "Application (Client) ID: $($app.AppId)"
     Write-Host "Tenant ID: $((Get-AzContext).Tenant.Id)" # 현재 컨텍스트의 테넌트 ID 확인
-    Write-Host "Client Secret: $secretValue" # !!! 이 값을 즉시 안전하게 저장하세요 !!!
+    Write-Host "Client Secret: $secretValue" # ⚠️ 이 값을 즉시 안전하게 저장하세요 ⚠️
 
     # (선택 사항) 역할 할당 예시 (구독 범위에 Reader 역할 할당)
     # New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionName "Reader" -Scope "/subscriptions/<SubscriptionID>"
