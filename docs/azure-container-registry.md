@@ -20,9 +20,34 @@ Azure Container Registry를 선택하는 이유는 다음과 같습니다:
 
 ![Create Azure Container Registry](./images/azure-container-registry/02.png)
 
-- 검토 및 만들기를 하면 배포가 된다.
+- 검토 및 만들기를 하면 배포가 된다. CLI 환경에서 명령어로도 확인이 가능하다.
+
+```bash
+# az acr show --name [container-registry-name]
+az acr show --name gugitContainerRegistry
+# 간단하게 보려면
+az acr show --name gugitContainerRegistry --output table
+```
 
 ![Create Azure Container Registry](./images/azure-container-registry/03.png)
+
+## Azure Container Registry 관리자 계정 활성화
+
+- 관리자 계정을 활성화하면 레지스트리에 대한 관리자 권한을 부여할 수 있다.
+
+```bash
+# az acr update --name [container-registry-name] --admin-enabled true
+az acr update --name gugitContainerRegistry --admin-enabled true
+```
+
+- 명령어로 권한 확인이 가능하다.
+
+```bash
+# az acr credential show --name [container-registry-name]
+az acr credential show --name gugitContainerRegistry
+```
+
+![Create Azure Container Registry](./images/azure-container-registry/04.png)
 
 # 참고 자료
 
