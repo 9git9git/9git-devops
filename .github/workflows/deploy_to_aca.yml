@@ -1,0 +1,79 @@
+name: Reusable ACA Deployment
+
+on:
+  workflow_call: # 다른 워크플로우에서 호출될 수 있도록 설정
+    inputs:
+      image_tag:
+        description: 'Full image tag to deploy'
+        required: true
+        type: string
+      target_environment:
+        description: 'Target environment name (e.g., production, test)'
+        required: true
+        type: string
+      app_type:
+        description: 'Type of the application (backend or frontend)'
+        required: true
+        type: string # 'backend' 또는 'frontend'
+    secrets:
+      AZURE_CREDENTIALS: # 호출하는 워크플로우로부터 Azure 자격증명 Secret을 받음
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.app_type }} to ${{ inputs.target_environment }} ACA
+    runs-on: ubuntu-latest
+
+    # 호출 시 전달된 target_environment 이름으로 GitHub Environment 사용
+    environment:
+      name: ${{ inputs.target_environment }}
+      # url: ${{ vars.ACA_FRONTEND_APP_URL }} # 필요시 해당 환경의 URL 설정
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }} # 전달받은 Secret 사용
+
+      # 환경별 변수 로드 (GitHub Environment Variables 사용)
+      - name: Set Environment Variables from GitHub Environment
+        id: set_vars
+        run: |
+          echo "Loading variables for environment: ${{ inputs.target_environment }}"
+          echo "ACA_RESOURCE_GROUP=${{ vars.ACA_RESOURCE_GROUP }}" >> $GITHUB_ENV
+          # app_type에 따라 적절한 ACA 앱 이름 변수를 가져옴
+          if [[ "${{ inputs.app_type }}" == "backend" ]]; then
+            echo "ACA_APP_NAME=${{ vars.BACKEND_ACA_APP_NAME }}" >> $GITHUB_ENV
+            echo "Setting API_URL option for backend (none)"
+            echo "ENV_VARS_OPTION=" >> $GITHUB_ENV # 백엔드는 API_URL 설정 불필요
+          elif [[ "${{ inputs.app_type }}" == "frontend" ]]; then
+            echo "ACA_APP_NAME=${{ vars.FRONTEND_ACA_APP_NAME }}" >> $GITHUB_ENV
+            # 프론트엔드 배포 시 필요한 추가 변수 로드
+            BACKEND_URL="http://${{ vars.BACKEND_ACA_APP_NAME }}:${{ vars.BACKEND_TARGET_PORT }}"
+            echo "Setting Frontend API_URL to: $BACKEND_URL"
+            echo "ENV_VARS_OPTION=--set-env-vars API_URL=$BACKEND_URL" >> $GITHUB_ENV
+          else
+            echo "Invalid app_type: ${{ inputs.app_type }}"
+            exit 1
+          fi
+          echo "Target ACA App Name: ${ACA_APP_NAME:-Not Set}" # 디버깅용 로그 추가
+
+      - name: Deploy to ACA using Azure CLI
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            # 환경 변수가 설정되었는지 다시 확인 (디버깅)
+            if [[ -z "${{ env.ACA_APP_NAME }}" ]]; then
+              echo "Error: ACA_APP_NAME is not set!"
+              exit 1
+            fi
+
+            echo "Deploying ${{ inputs.app_type }} image: ${{ inputs.image_tag }} to ACA: ${{ env.ACA_APP_NAME }} in RG: ${{ env.ACA_RESOURCE_GROUP }}"
+
+            az containerapp update \
+              --name "${{ env.ACA_APP_NAME }}" \
+              --resource-group "${{ env.ACA_RESOURCE_GROUP }}" \
+              --image "${{ inputs.image_tag }}" \
+              ${{ env.ENV_VARS_OPTION }} # 프론트엔드일 경우 환경 변수 옵션 추가됨
+
+            echo "${{ inputs.app_type }} deployment initiated."
