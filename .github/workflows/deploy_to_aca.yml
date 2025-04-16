@@ -3,8 +3,9 @@ name: Reusable ACA Deployment
 on:
   workflow_call: # 다른 워크플로우에서 호출될 수 있도록 설정
     inputs:
-      image_tag:
-        description: 'Full image tag to deploy'
+      # --- 수정된 부분: image_tag 대신 commit_sha 입력 받음 ---
+      commit_sha:
+        description: 'Git commit SHA to deploy'
         required: true
         type: string
       target_environment:
@@ -35,12 +36,30 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }} # 전달받은 Secret 사용
 
-      # 환경별 변수 로드 (GitHub Environment Variables 사용)
-      - name: Set Environment Variables from GitHub Environment
+      - name: Set Environment Variables and Construct Image Tag
         id: set_vars
         run: |
           echo "Loading variables for environment: ${{ inputs.target_environment }}"
           echo "ACA_RESOURCE_GROUP=${{ vars.ACA_RESOURCE_GROUP }}" >> $GITHUB_ENV
+
+          # --- 이미지 태그 조합 로직 시작 ---
+          ACR_LOGIN_SERVER_VAL="${{ vars.ACR_LOGIN_SERVER }}" # GitHub Environment 변수 사용 가정
+          # 환경(production/test)에 따라 ACR 리포지토리 이름 결정
+          # target_environment 값으로 분기 (main/dev 대신 production/test 사용)
+          if [[ "${{ inputs.target_environment }}" == "production" ]]; then
+             ACR_REPO_NAME="${{ vars.ACR_REPOSITORY_NAME }}" # GitHub Environment 변수 사용 가정
+          elif [[ "${{ inputs.target_environment }}" == "test" ]]; then
+             ACR_REPO_NAME="${{ vars.ACR_REPOSITORY_NAME_TEST }}" # GitHub Environment 변수 사용 가정
+          else
+             echo "Error: Unknown target_environment: ${{ inputs.target_environment }}"
+             exit 1
+          fi
+          # 입력받은 commit_sha를 사용하여 전체 이미지 태그 생성
+          FULL_IMAGE_TAG="${ACR_LOGIN_SERVER_VAL}/${ACR_REPO_NAME}:${{ inputs.commit_sha }}"
+          echo "Constructed Image Tag for deployment: ${FULL_IMAGE_TAG}"
+          echo "IMAGE_TAG_TO_DEPLOY=${FULL_IMAGE_TAG}" >> $GITHUB_ENV # 다음 단계에서 사용할 환경 변수로 설정
+          # --- 이미지 태그 조합 로직 끝 ---
+
           # app_type에 따라 적절한 ACA 앱 이름 변수를 가져옴
           if [[ "${{ inputs.app_type }}" == "backend" ]]; then
             echo "ACA_APP_NAME=${{ vars.BACKEND_ACA_APP_NAME }}" >> $GITHUB_ENV
@@ -67,13 +86,17 @@ jobs:
               echo "Error: ACA_APP_NAME is not set!"
               exit 1
             fi
+            if [[ -z "${{ env.IMAGE_TAG_TO_DEPLOY }}" ]]; then
+              echo "Error: IMAGE_TAG_TO_DEPLOY is not set!"
+              exit 1
+            fi
 
-            echo "Deploying ${{ inputs.app_type }} image: ${{ inputs.image_tag }} to ACA: ${{ env.ACA_APP_NAME }} in RG: ${{ env.ACA_RESOURCE_GROUP }}"
+            echo "Deploying ${{ inputs.app_type }} image: ${{ env.IMAGE_TAG_TO_DEPLOY }} to ACA: ${{ env.ACA_APP_NAME }} in RG: ${{ env.ACA_RESOURCE_GROUP }}"
 
             az containerapp update \
               --name "${{ env.ACA_APP_NAME }}" \
               --resource-group "${{ env.ACA_RESOURCE_GROUP }}" \
-              --image "${{ inputs.image_tag }}" \
+              --image "${{ env.IMAGE_TAG_TO_DEPLOY }}" \ 
               ${{ env.ENV_VARS_OPTION }} # 프론트엔드일 경우 환경 변수 옵션 추가됨
 
             echo "${{ inputs.app_type }} deployment initiated."
