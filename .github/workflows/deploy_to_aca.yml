@@ -94,10 +94,37 @@ jobs:
 
             echo "Deploying ${{ inputs.app_type }} image: ${{ env.IMAGE_TAG_TO_DEPLOY }} to ACA: ${{ env.ACA_APP_NAME }} in RG: ${{ env.ACA_RESOURCE_GROUP }}"
 
-            az containerapp update \
-              --name "${{ env.ACA_APP_NAME }}" \
-              --resource-group "${{ env.ACA_RESOURCE_GROUP }}" \
-              --image "${{ env.IMAGE_TAG_TO_DEPLOY }}" \
-              ${{ env.ENV_VARS_OPTION }} # 프론트엔드일 경우 환경 변수 옵션 추가됨
+            # ACA가 존재하는지 확인
+            ACA_EXISTS=$(az containerapp show --name "${{ env.ACA_APP_NAME }}" --resource-group "${{ env.ACA_RESOURCE_GROUP }}" --query "name" -o tsv 2>/dev/null || echo "false")
+
+            if [[ "$ACA_EXISTS" == "false" ]]; then
+              echo "Container App does not exist. Creating new one..."
+              
+              # 백엔드인 경우 환경 변수 설정
+              if [[ "${{ inputs.app_type }}" == "backend" ]]; then
+                BASE_ENV_VARS="SYNC_DATABASE_URL=${{ secrets.SYNC_DATABASE_URL }} ASYNC_DATABASE_URL=${{ secrets.ASYNC_DATABASE_URL }} DB_ECHO_LOG=True SECRET_KEY=${{ secrets.SECRET_KEY }} IS_SECURE=${{ secrets.IS_SECURE }} AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }} AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }} AZURE_OPENAI_DEPLOYMENT_NAME=${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }} AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }}"
+              fi
+
+              # ACA 생성
+              az containerapp create \
+                --name "${{ env.ACA_APP_NAME }}" \
+                --resource-group "${{ env.ACA_RESOURCE_GROUP }}" \
+                --environment "${{ vars.ACA_ENVIRONMENT_NAME }}" \
+                --image "${{ env.IMAGE_TAG_TO_DEPLOY }}" \
+                --target-port 8000 \
+                --ingress external \
+                --env-vars $BASE_ENV_VARS \
+                --cpu 0.5 \
+                --memory 1.0Gi \
+                --registry-server "${{ secrets.ACR_LOGIN_SERVER }}" \
+                --registry-identity system
+            else
+              # 기존 ACA 업데이트
+              az containerapp update \
+                --name "${{ env.ACA_APP_NAME }}" \
+                --resource-group "${{ env.ACA_RESOURCE_GROUP }}" \
+                --image "${{ env.IMAGE_TAG_TO_DEPLOY }}" \
+                ${{ env.ENV_VARS_OPTION }}
+            fi
 
             echo "${{ inputs.app_type }} deployment initiated."
