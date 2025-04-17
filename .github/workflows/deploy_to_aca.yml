@@ -69,9 +69,9 @@ jobs:
           elif [[ "${{ inputs.app_type }}" == "frontend" ]]; then
             echo "ACA_APP_NAME=${{ vars.FRONTEND_ACA_APP_NAME }}" >> $GITHUB_ENV
             # 프론트엔드 배포 시 필요한 추가 변수 로드
-            BACKEND_URL="http://${{ vars.BACKEND_ACA_APP_NAME }}:${{ vars.BACKEND_TARGET_PORT }}"
+            BACKEND_URL="https://${{ vars.BACKEND_ACA_APP_NAME }}.calmforest-521dd431.eastus.azurecontainerapps.io"
             echo "Setting Frontend API_URL to: $BACKEND_URL"
-            echo "ENV_VARS_OPTION=--set-env-vars API_URL=$BACKEND_URL" >> $GITHUB_ENV
+            echo "ENV_VARS_OPTION=--set-env-vars NEXT_PUBLIC_API_URL=$BACKEND_URL API_URL=$BACKEND_URL" >> $GITHUB_ENV
           else
             echo "Invalid app_type: ${{ inputs.app_type }}"
             exit 1
