@@ -4,15 +4,15 @@ on:
   workflow_call: # 다른 워크플로우에서 호출될 수 있도록 설정
     inputs:
       commit_sha:
-        description: 'Git commit SHA to deploy'
+        description: "Git commit SHA to deploy"
         required: true
         type: string
       target_environment:
-        description: 'Target environment name (e.g., production, test)'
+        description: "Target environment name (e.g., production, test)"
         required: true
         type: string
       app_type:
-        description: 'Type of the application (backend or frontend)'
+        description: "Type of the application (backend or frontend)"
         required: true
         type: string # 'backend' 또는 'frontend'
     secrets:
@@ -124,7 +124,7 @@ jobs:
                 --name "${{ env.ACA_APP_NAME }}" \
                 --resource-group "${{ env.ACA_RESOURCE_GROUP }}" \
                 --image "${{ env.IMAGE_TAG_TO_DEPLOY }}" \
-                ${{ env.ENV_VARS_OPTION }}
+                $ENV_VARS_OPTION
             fi
 
             echo "${{ inputs.app_type }} deployment initiated."
